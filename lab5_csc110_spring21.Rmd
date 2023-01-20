@@ -1,0 +1,310 @@
+---
+title: "Lab 5"
+author: "Anonymous"
+date: "11/17/2022"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tidycensus)
+library(tmap)
+library(sf)
+library(readxl)
+library(rgdal)
+```
+# Instructions 
+* Leave the author as anonymous
+* Add a code chunk for each coding question
+* Use bullet points (using an asterisk to start each bullet, like this bulleted list) or plain text to answer discussion questions
+* Make your maps and graphs look nice, including appropriate labels, etc. 
+* *IMPORTANT*: use the option results='hide' in any code chunk calling get_decennial or get_acs
+* Turn in both the R markdown file and the knitted Word file
+
+## Question 1: Segregation maps
+
+(a) Run the following commands to download data from the 2010 US Census for black, white and Hispanic population counts in Mecklenburg county, and plot all three in facets of a single plot.
+(b) Repeat steps in part (a) for the county containing each of the following downtown areas: Jacksonville, FL; Indianapolis, IN, Washington, DC; Boston, MA; and San Jose, CA
+
+* For consistency, please use the following palette and breakpoint choices in each set of maps in Question 1:   tm_polygons("pct", palette = "Greens", breaks=c(0, 10, 25, 50, 75, 100)) +
+
+
+```{r}
+options(tigris_use_cache = TRUE)
+options(results='hide')
+
+racevars <- c(White = "P005003", 
+              Black = "P005004", 
+              Hispanic = "P004003")
+
+#a
+# Mecklenburg County (Charlotte, NC)
+meck <- get_decennial(geography = "tract", variables = racevars,
+                      summary_var = "P001001", state = "NC", county = "Mecklenburg", 
+                      year=2010, geometry = TRUE)
+meck <- meck %>% 
+  mutate(pct = 100 * (value / summary_value))
+
+meck %>%
+  tm_shape() +
+  tm_polygons("pct", palette = "Greens", breaks=c(0, 10, 25, 50, 75, 100)) +
+  tm_facets(by="variable")
+
+#b
+# Duval County (Jacksonville, FL)
+duval <- get_decennial(geography = "tract", variables = racevars,
+                      summary_var = "P001001", state = "FL", county = "Duval", 
+                      year=2010, geometry = TRUE) 
+duval <- duval %>% 
+  mutate(pct = 100 * (value / summary_value)) %>%
+  filter(!is.na(pct))
+
+duval %>%
+  tm_shape() +
+  tm_polygons("pct", palette = "Greens", breaks=c(0, 10, 25, 50, 75, 100)) +
+  tm_facets(by="variable")
+
+# Marion County (Indianapolis, IN)
+marion <- get_decennial(geography = "tract", variables = racevars,
+                      summary_var = "P001001", state = "IN", county = "Marion", 
+                      year=2010, geometry = TRUE) 
+marion <- marion %>% 
+  mutate(pct = 100 * (value / summary_value))
+
+marion %>%
+  tm_shape() +
+  tm_polygons("pct", palette = "Greens", breaks=c(0, 10, 25, 50, 75, 100)) +
+  tm_facets(by="variable")
+
+# Washington, DC 
+washdc <- get_decennial(geography = "tract", variables = racevars,
+                      summary_var = "P001001", state = "DC", 
+                      year=2010, geometry = TRUE) 
+washdc <- washdc %>% 
+  mutate(pct = 100 * (value / summary_value))
+
+washdc %>%
+  tm_shape() +
+  tm_polygons("pct", palette = "Greens", breaks=c(0, 10, 25, 50, 75, 100)) +
+  tm_facets(by="variable")
+
+# Suffolk County (Boston, MA)
+suffolk <- get_decennial(geography = "tract", variables = racevars,
+                      summary_var = "P001001", state = "MA", county = "Suffolk", 
+                      year=2010, geometry = TRUE) 
+suffolk <- suffolk %>% 
+  mutate(pct = 100 * (value / summary_value))
+
+suffolk %>%
+  tm_shape() +
+  tm_polygons("pct", palette = "Greens", breaks=c(0, 10, 25, 50, 75, 100)) +
+  tm_facets(by="variable")
+
+# Santa Clara County (San Jose, CA)
+sancl <- get_decennial(geography = "tract", variables = racevars,
+                      summary_var = "P001001", state = "CA", county = "Santa Clara", 
+                      year=2010, geometry = TRUE) 
+sancl <- sancl %>% 
+  mutate(pct = 100 * (value / summary_value))
+
+sancl %>%
+  tm_shape() +
+  tm_polygons("pct", palette = "Greens", breaks=c(0, 10, 25, 50, 75, 100)) +
+  tm_facets(by="variable")
+```
+
+## Question 2: Economic Mobility
+
+(a) Read in the Chetty dataset and make a table of the economic mobility for each of the six CZs in Question 1. 
+```{r}
+chetty <- read_excel("Lab1_Chetty_2014.xlsx", skip=1)
+table <- chetty %>%
+  filter(cz_name %in% c("Charlotte", "Jacksonville", "San Jose", "Washington DC", "Boston", "Indianapolis")) %>%
+  filter(!cz == "1900" & !cz=="24801") %>% #Removes Jacksonville, NC and Jacksonville, IL
+  select(cz_name, state, rel_mobility, abs_mobility)
+```
+
+(b) Discuss the qualitative similarities and differences in racial/ethnic segregation patterns in low mobility vs high mobility areas. Do these cities help you draw any conclusions about the relationships between segregation and economic mobility?
+*2b* In terms of absolute mobility, the highest mobility was San Jose and the lowest mobility was Charlotte in terms of the table made in 2a. When examining racial/ethnic segregation patterns, there appears to be less segregation patterns in San Jose compared to Charlotte. This could point to a possible relationship between segregation and economic mobility, such that the lack of segregation facilitates economic mobility. However, it is important to note that in San Jose there is a greater Hispanic population in places where the White population percentage is less. Thus, there is still segregation in San Jose, especially considering the small Black population percentage. The relationships between segregation and economic mobility is not strongly supported by the other cities because Boston has the second highest mobiltiy but has clear racial/ethnic segregation patterns.
+
+## Question 3: Imagining no segregation
+
+(a) What was the overall percentage of black/white/Hispanic in Mecklenburg county in 2010? Hint: download a different decennial dataset to answer this question. Do not download geometry for this dataset.
+```{r results='hide'}
+meck_pct <- get_decennial(geography = "county", variables = racevars,
+                      summary_var = "P001001", state = "NC", county = "Mecklenburg", 
+                      year=2010, geometry = FALSE) 
+
+meck_pct <- meck_pct %>% 
+  mutate(pct = 100 * (value / summary_value)) %>%
+  select(variable, pct)
+```
+(b) What would the graphs of the white, black and Hispanic populations of Mecklenburg county look like if there were essentially no racial/ethnic segregation? 
+*3b* The graphs of the White, Black and Hispanic populations of Mecklenburg county would have equal percentages of each population in an area if there was essentially no racial/ethnic segregation. This does not necessarily mean the overall percentages are equal, but that in each area there is an equal proportion of White, Black and Hispanic people living there. 
+
+## Question 4: Segregation over time
+
+Has Mecklenburg County become more or less segregated over time? To support your answer:
+(a) Compare maps for 2000 and 2018 to the 2010 maps above, 
+```{r results = 'hide'}
+#a
+# 2000 Map
+racevars_2000 <- c(White = "P004005", 
+              Black = "P004006", 
+              Hispanic = "P004002")
+
+meck_2000 <- get_decennial(geography = "tract", variables = racevars_2000,
+                      summary_var = "P001001", state = "NC", county = "Mecklenburg", 
+                      year=2000, geometry = TRUE) 
+
+meck_2000 <- meck_2000 %>% 
+  mutate(Percent_2000 = 100 * (value / summary_value))
+
+meck_2000 %>%
+  tm_shape() +
+  tm_polygons("Percent_2000") +
+  tm_facets(by="variable")
+
+# 2018 Map
+racevars_2018 <- c(White = "B02001_002", 
+              Black = "B02001_003", 
+              Hispanic = "B03001_003")
+
+
+meck_2018 <- get_acs(geography = "tract", 
+                              variables = racevars_2018,
+                            summary_var = "B02001_001", state = "NC", county = "Mecklenburg", 
+                            year=2018, 
+                            geometry = TRUE)
+
+meck_2018 <- meck_2018 %>% 
+  mutate(Percent_2018 = 100 * (estimate / summary_est))
+
+meck_2018 %>%
+  tm_shape() +
+  tm_polygons("Percent_2018") +
+  tm_facets(by="variable")
+```
+*4a* From 2000 to 2010, we can see that the overall percentages of Black and Hispanic people have increased and expanded outward, while the percentages of White people decreased in turn. As we move from 2010 to 2018, the percentages of each race slightly increase overall in areas where such percentages were already higher compared to the rest of the map. This suggests that rates of segregation remained relatively stagnant. 
+
+(b) Propose a quantitative measure of segregation (either from the research literature or your own creative approach), and 
+*4b* We are looking at whether or not people owned or rented their home. We chose these variables as a possible quantitative measure of segregation because the history of redlining in the US, which systematically denied Black individuals the opportunity to own a house. Thus, this measure could possibly represent a segregation pattern.
+
+(c) Calculate and visualize your measure across the three years. 
+```{r results = 'hide'}
+#b
+# 2000 Map
+housevars_2000 <- c(Renter = "H004003",
+            `Owner` = "H004002")
+
+meckhouse_2000 <- get_decennial(geography = "tract", variables = housevars_2000,
+                      summary_var = "H004001", state = "NC", county = "Mecklenburg", 
+                      year=2000, geometry = TRUE) 
+
+meckhouse_2000 <- meckhouse_2000 %>% 
+  mutate(Percent_2000 = 100 * (value / summary_value))
+
+meckhouse_2000 %>%
+  tm_shape() +
+  tm_polygons("Percent_2000") +
+  tm_facets(by="variable")
+
+# 2010 Map
+housevars_2010 <- c(Renter = "H004004",
+            `Owner` = "H004002")
+
+meckhouse_2010 <- get_decennial(geography = "tract", variables = housevars_2010,
+                      summary_var = "H004001", state = "NC", county = "Mecklenburg", 
+                      year=2010, geometry = TRUE) 
+
+meckhouse_2010 <- meckhouse_2010 %>% 
+  mutate(Percent_2010 = 100 * (value / summary_value))
+
+meckhouse_2010 %>%
+  tm_shape() +
+  tm_polygons("Percent_2010") +
+  tm_facets(by="variable")
+
+# 2018 Map
+housevars_2018 <- c(Renter = "B07013_003",
+            `Owner` = "B07013_002")
+
+
+meckhouse_2018 <- get_acs(geography = "tract", variables = housevars_2018,
+                      summary_var = "B07013_001", state = "NC", county = "Mecklenburg", 
+                      year=2018, geometry = TRUE) 
+
+meckhouse_2018 <- meckhouse_2018 %>% 
+  mutate(Percent_2018 = 100 * (estimate / summary_est))
+
+meckhouse_2018 %>%
+  tm_shape() +
+  tm_polygons("Percent_2018") +
+  tm_facets(by="variable")
+```
+
+## Question 5: Mapping poverty
+(a) Find the variable in ACS that measures % in poverty. 
+(b) Map this variable in Mecklenburg County to reproduce the poverty segregation graph in LOTF
+```{r results = 'hide'}
+#a
+meck_poverty <- get_acs(geography = "tract",
+                            variables = "B17020_001",
+                            summary_var = "B02001_001",
+                            state = "NC", 
+                            county = "Mecklenburg",
+                            geometry = TRUE)
+
+meck_poverty <- meck_poverty %>%
+  mutate(`Percent in Poverty` = 100 * (estimate / summary_est))
+
+#b
+meck_poverty %>%
+  tm_shape() +
+  tm_polygons("Percent in Poverty") +
+  tm_facets(by="variable")
+```
+
+## Question 6: Mapping wealth 
+(a) Find the variable in ACS that measures % with above $200K income
+(b) Map this variable to reproduce the wealth segregation graph in LOTF
+```{r results = 'hide'}
+
+#a
+meck_income <- get_acs(geography = "tract",
+                            variables = "B19101_017",
+                            summary_var = "B02001_001", 
+                            state = "NC", 
+                            county = "Mecklenburg",
+                            year=2018,
+                            geometry = TRUE)
+
+meck_income <- meck_income %>%
+  mutate(`Percent Above $200k Income` = 100 * (estimate / summary_est))
+
+#b
+meck_income %>%
+  tm_shape() +
+  tm_polygons("Percent Above $200k Income") +
+  tm_facets(by="variable")
+```
+
+## Question 7: Mapping landfills
+(a) Download the landfill data from the Mecklenburg Open Mapping project http://maps.co.mecklenburg.nc.us/openmapping/data.html, and put this folder in your project folder
+(b) Make a map that could be used to illustrate inequity relative to landfill locations 
+(c) Describe another type of visualization (not a map) to illustrate this inequity. Be specific about the type, variables and axes of this hypothetical plot.
+```{r}
+#b 
+meck_black <- meck %>%
+  filter(variable=="Black")
+landfills <- readOGR(dsn = "landfills", layer = "Landfills")
+
+tm_shape(meck_black) +
+  tm_borders() +
+  tm_fill("pct", palette="Reds") +
+  tm_shape(landfills) +
+  tm_bubbles(col= "STATUS_1", id="NAME", size=0.1)
+```
+*7c* Another type of visualization that could illustrate this inequity is a bar graph. The x-axis would represent the percentage of Black people and the y-axis would represent the number of landfills (if any). The position aesthetic would be utilized to indicate the status of the landfill. If the data was there, the visualization could be faceted based on neighborhood within the county. We chose a bar graph to be the visualization because of its advantage to illustrate proportion and percentages. 
+
